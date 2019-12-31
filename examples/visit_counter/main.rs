@@ -6,8 +6,8 @@
 #[macro_use]
 extern crate rocket;
 
-use std::time::Duration;
 use rocket::response::content::Html;
+use std::time::Duration;
 
 #[derive(Default, Clone)]
 struct SessionData {
@@ -20,13 +20,14 @@ type Session<'a> = rocket_session::Session<'a, SessionData>;
 
 fn main() {
     rocket::ignite()
-        .attach(Session::fairing()
-            // 10 seconds of inactivity until session expires
-            // (wait 10s and refresh, the numbers will reset)
-            .with_lifetime(Duration::from_secs(10))
-            // custom cookie name and length
-            .with_cookie_name("my_cookie")
-            .with_cookie_len(20)
+        .attach(
+            Session::fairing()
+                // 10 seconds of inactivity until session expires
+                // (wait 10s and refresh, the numbers will reset)
+                .with_lifetime(Duration::from_secs(10))
+                // custom cookie name and length
+                .with_cookie_name("my_cookie")
+                .with_cookie_len(20),
         )
         .mount("/", routes![index, about])
         .launch();
@@ -41,14 +42,14 @@ fn index(session: Session) -> Html<String> {
     session.tap(|sess| {
         sess.visits1 += 1;
 
-        Html(format!(r##"
+        Html(format!(
+            r##"
                 <!DOCTYPE html>
                 <h1>Home</h1>
                 <a href="/">Refresh</a> &bull; <a href="/about/">go to About</a>
                 <p>Visits: home {}, about {}</p>
             "##,
-            sess.visits1,
-            sess.visits2
+            sess.visits1, sess.visits2
         ))
     })
 }
@@ -61,7 +62,8 @@ fn about(session: Session) -> Html<String> {
         sess.visits2
     });
 
-    Html(format!(r##"
+    Html(format!(
+        r##"
             <!DOCTYPE html>
             <h1>About</h1>
             <a href="/about">Refresh</a> &bull; <a href="/">go home</a>

@@ -2,9 +2,9 @@
 #[macro_use]
 extern crate rocket;
 
+use rocket::request::Form;
 use rocket::response::content::Html;
 use rocket::response::Redirect;
-use rocket::request::Form;
 
 type Session<'a> = rocket_session::Session<'a, Vec<String>>;
 
@@ -18,7 +18,8 @@ fn main() {
 #[get("/")]
 fn index(session: Session) -> Html<String> {
     let mut page = String::new();
-    page.push_str(r#"
+    page.push_str(
+        r#"
             <!DOCTYPE html>
             <h1>My Dogs</h1>
 
@@ -27,19 +28,25 @@ fn index(session: Session) -> Html<String> {
             </form>
 
             <ul>
-        "#);
+        "#,
+    );
 
     session.tap(|sess| {
         for (n, dog) in sess.iter().enumerate() {
-            page.push_str(&format!(r#"
+            page.push_str(&format!(
+                r#"
                 <li>&#x1F436; {} <a href="/remove/{}">Remove</a></li>
-            "#, dog, n));
+            "#,
+                dog, n
+            ));
         }
     });
 
-    page.push_str(r#"
+    page.push_str(
+        r#"
             </ul>
-        "#);
+        "#,
+    );
 
     Html(page)
 }
@@ -49,8 +56,8 @@ struct AddForm {
     name: String,
 }
 
-#[post("/add", data="<dog>")]
-fn add(session: Session, dog : Form<AddForm>) -> Redirect {
+#[post("/add", data = "<dog>")]
+fn add(session: Session, dog: Form<AddForm>) -> Redirect {
     session.tap(move |sess| {
         sess.push(dog.into_inner().name);
     });
@@ -59,7 +66,7 @@ fn add(session: Session, dog : Form<AddForm>) -> Redirect {
 }
 
 #[get("/remove/<dog>")]
-fn remove(session: Session, dog : usize) -> Redirect {
+fn remove(session: Session, dog: usize) -> Redirect {
     session.tap(|sess| {
         if dog < sess.len() {
             sess.remove(dog);

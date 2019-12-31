@@ -1,6 +1,6 @@
 [package]
 name = "rocket_session"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Ondřej Hruška <ondra@ondrovo.com>"]
 edition = "2018"
 license = "MIT"

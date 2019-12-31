@@ -1,4 +1,4 @@
-use parking_lot::{RwLock, RwLockUpgradableReadGuard, Mutex};
+use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use rand::Rng;
 
 use rocket::{
@@ -8,18 +8,18 @@ use rocket::{
     Outcome, Request, Response, Rocket, State,
 };
 
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use std::marker::PhantomData;
 use std::ops::Add;
 use std::time::{Duration, Instant};
-use std::borrow::Cow;
-use std::fmt::{Display, Formatter, self};
 
 /// Session store (shared state)
 #[derive(Debug)]
 pub struct SessionStore<D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     /// The internally mutable map of sessions
     inner: RwLock<StoreInner<D>>,
@@ -54,15 +54,17 @@ impl Default for SessionConfig {
 /// Mutable object stored inside SessionStore behind a RwLock
 #[derive(Debug)]
 struct StoreInner<D>
-    where
-        D: 'static + Sync + Send + Default {
+where
+    D: 'static + Sync + Send + Default,
+{
     sessions: HashMap<String, Mutex<SessionInstance<D>>>,
     last_expiry_sweep: Instant,
 }
 
 impl<D> Default for StoreInner<D>
-    where
-        D: 'static + Sync + Send + Default {
+where
+    D: 'static + Sync + Send + Default,
+{
     fn default() -> Self {
         Self {
             sessions: Default::default(),
@@ -75,8 +77,8 @@ impl<D> Default for StoreInner<D>
 /// Session, as stored in the sessions store
 #[derive(Debug)]
 struct SessionInstance<D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     /// Data object
     data: D,
@@ -108,8 +110,8 @@ impl Display for SessionID {
 /// when a `Session` is prepared for one of the route functions.
 #[derive(Debug)]
 pub struct Session<'a, D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     /// The shared state reference
     store: State<'a, SessionStore<D>>,
@@ -118,8 +120,8 @@ pub struct Session<'a, D>
 }
 
 impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     type Error = ();
 
@@ -138,7 +140,8 @@ impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
 
                 let expires = Instant::now().add(store.config.lifespan);
 
-                if let Some(m) = id.as_ref()
+                if let Some(m) = id
+                    .as_ref()
                     .and_then(|token| store_ug.sessions.get(token.as_str()))
                 {
                     // --- ID obtained from a cookie && session found in the store ---
@@ -166,8 +169,7 @@ impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
                     // Throttle by lifespan - e.g. sweep every hour
                     if store_wg.last_expiry_sweep.elapsed() > store.config.lifespan {
                         let now = Instant::now();
-                        store_wg.sessions
-                            .retain(|_k, v| v.lock().expires > now);
+                        store_wg.sessions.retain(|_k, v| v.lock().expires > now);
 
                         store_wg.last_expiry_sweep = now;
                     }
@@ -201,8 +203,8 @@ impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
 }
 
 impl<'a, D> Session<'a, D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     /// Create the session fairing.
     ///
@@ -231,7 +233,9 @@ impl<'a, D> Session<'a, D>
 
         // Unlock the session's mutex.
         // Expiry was checked and prolonged at the beginning of the request
-        let mut instance = store_rg.sessions.get(self.id.as_str())
+        let mut instance = store_rg
+            .sessions
+            .get(self.id.as_str())
             .expect("Session data unexpectedly missing")
             .lock();
 
@@ -242,16 +246,16 @@ impl<'a, D> Session<'a, D>
 /// Fairing struct
 #[derive(Default)]
 pub struct SessionFairing<D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     config: SessionConfig,
     phantom: PhantomData<D>,
 }
 
 impl<D> SessionFairing<D>
-    where
-        D: 'static + Sync + Send + Default
+where
+    D: 'static + Sync + Send + Default,
 {
     fn new() -> Self {
         Self::default()
@@ -291,8 +295,8 @@ impl<D> SessionFairing<D>
 }
 
 impl<D> Fairing for SessionFairing<D>
-    where
-        D: 'static + Sync + Send + Default,
+where
+    D: 'static + Sync + Send + Default,
 {
     fn info(&self) -> Info {
         Info {
@@ -314,8 +318,11 @@ impl<D> Fairing for SessionFairing<D>
         let session = request.local_cache(|| SessionID("".to_string()));
 
         if !session.0.is_empty() {
-            response.adjoin_header(Cookie::build(self.config.cookie_name.clone(), session.to_string())
-                .path("/").finish());
+            response.adjoin_header(
+                Cookie::build(self.config.cookie_name.clone(), session.to_string())
+                    .path("/")
+                    .finish(),
+            );
         }
     }
 }
