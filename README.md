@@ -6,9 +6,13 @@ The implementation is generic to support any type as session data: a custom stru
 `HashMap`, or perhaps `serde_json::Value`. You're free to choose.
 
 The session expiry time is configurable through the Fairing. When a session expires,
-the data associated with it is dropped.
+the data associated with it is dropped. All expired sessions may be cleared by calling `.remove_expired()`
+on the `SessionStore`, which is be obtained in routes as `State<SessionStore>`, or from a 
+session instance by calling `.get_store()`.
 
-## Basic example
+The session cookie is currently hardcoded to "SESSID" and contains 16 random characters.
+
+## Basic Example
 
 This simple example uses u64 as the session variable; note that it can be a struct, map, or anything else,
 it just needs to implement `Send + Sync + Default`. 
@@ -44,9 +48,9 @@ fn index(session: Session) -> String {
 }
 ```
 
-## Extending by a trait
+## Extending Session by a Trait
 
-The `tap` method is powerful, but sometimes you may wish for something more convenient.
+The `.tap()` method is powerful, but sometimes you may wish for something more convenient.
 
 Here is an example of using a custom trait and the `json_dotpath` crate to implement
 a polymorphic store based on serde serialization:
