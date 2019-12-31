@@ -1,0 +1,15 @@
+[package]
+name = "rocket_session"
+version = "0.1.0"
+authors = ["Ondřej Hruška <ondra@ondrovo.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version="1.0", features= ["preserve_order"] }
+json_dotpath = "0.1.2"
+rand = "0.7.2"
+rocket = { version="0.4.2", default-features = false}
+parking_lot = "0.10.0"
