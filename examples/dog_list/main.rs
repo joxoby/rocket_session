@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::request::Form;
 use rocket::response::content::Html;
 use rocket::response::Redirect;
 
@@ -30,38 +29,23 @@ fn index(session: Session) -> Html<String> {
             <ul>
         "#,
     );
-
     session.tap(|sess| {
         for (n, dog) in sess.iter().enumerate() {
             page.push_str(&format!(
-                r#"
-                <li>&#x1F436; {} <a href="/remove/{}">Remove</a></li>
-            "#,
+                r#"<li>&#x1F436; {} <a href="/remove/{}">Remove</a></li>"#,
                 dog, n
             ));
         }
     });
-
-    page.push_str(
-        r#"
-            </ul>
-        "#,
-    );
-
+    page.push_str("</ul>");
     Html(page)
 }
 
-#[derive(FromForm)]
-struct AddForm {
-    name: String,
-}
-
 #[post("/add", data = "<dog>")]
-fn add(session: Session, dog: Form<AddForm>) -> Redirect {
+fn add(session: Session, dog: String) -> Redirect {
     session.tap(move |sess| {
-        sess.push(dog.into_inner().name);
+        sess.push(dog);
     });
-
     Redirect::found("/")
 }
 
@@ -72,6 +56,5 @@ fn remove(session: Session, dog: usize) -> Redirect {
             sess.remove(dog);
         }
     });
-
     Redirect::found("/")
 }
