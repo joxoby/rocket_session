@@ -1,8 +1,17 @@
 [package]
 name = "rocket_session"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ondřej Hruška <ondra@ondrovo.com>"]
 edition = "2018"
+license = "MIT"
+description = "Rocket.rs plug-in for cookie-based sessions holding arbitrary data"
+repository = "https://git.ondrovo.com/packages/rocket_session"
+readme = "README.md"
+keywords = ["rocket", "rocket-rs", "session", "cookie"]
+categories = [
+    "web-programming",
+    "web-programming::http-server"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
