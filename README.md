@@ -1,13 +1,26 @@
 # Sessions for Rocket.rs
 
-Adding cookie-based sessions to a rocket application is extremely simple:
+Adding cookie-based sessions to a rocket application is extremely simple with this crate.
+
+The implementation is generic to support any type as session data: a custom struct, `String`,
+`HashMap`, or perhaps `serde_json::Value`. You're free to choose.
+
+The session expiry time is configurable through the Fairing. When a session expires,
+the data associated with it is dropped.
+
+## Basic example
+
+This simple example uses u64 as the session variable; note that it can be a struct, map, or anything else,
+it just needs to implement `Send + Sync + Default`. 
 
 ```rust
 #![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use] extern crate rocket;
 
-use rocket_session::Session;
 use std::time::Duration;
+
+// It's convenient to define a type alias:
+pub type Session<'a> = rocket_session::Session<'a, u64>;
 
 fn main() {
     rocket::ignite()
@@ -18,16 +31,66 @@ fn main() {
 
 #[get("/")]
 fn index(session: Session) -> String {
-    let mut count: usize = session.get_or_default("count");
-    count += 1;
-    session.set("count", count);
+    let count = session.tap(|n| {
+        // Change the stored value (it is &mut) 
+        *n += 1;
+
+        // Return something to the caller. 
+        // This can be any type, 'tap' is generic.        
+        *n
+    });
 
     format!("{} visits", count)
 }
 ```
 
-Anything serializable can be stored in the session, just make sure to unpack it to the right type.
+## Extending by a trait
 
-The session driver internally uses `serde_json::Value` and the `json_dotpath` crate. 
-Therefore, it's possible to use dotted paths and store the session data in a more structured way.
+The `tap` method is powerful, but sometimes you may wish for something more convenient.
+
+Here is an example of using a custom trait and the `json_dotpath` crate to implement
+a polymorphic store based on serde serialization:
+
+```rust
+use serde_json::Value;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use json_dotpath::DotPaths;
+
+pub type Session<'a> = rocket_session::Session<'a, serde_json::Map<String, Value>>;
+
+pub trait SessionAccess {
+    fn get<T: DeserializeOwned>(&self, path: &str) -> Option<T>;
+
+    fn take<T: DeserializeOwned>(&self, path: &str) -> Option<T>;
+
+    fn replace<O: DeserializeOwned, N: Serialize>(&self, path: &str, new: N) -> Option<O>;
+
+    fn set<T: Serialize>(&self, path: &str, value: T);
+
+    fn remove(&self, path: &str) -> bool;
+}
+
+impl<'a> SessionAccess for Session<'a> {
+    fn get<T: DeserializeOwned>(&self, path: &str) -> Option<T> {
+        self.tap(|data| data.dot_get(path))
+    }
+
+    fn take<T: DeserializeOwned>(&self, path: &str) -> Option<T> {
+        self.tap(|data| data.dot_take(path))
+    }
+
+    fn replace<O: DeserializeOwned, N: Serialize>(&self, path: &str, new: N) -> Option<O> {
+        self.tap(|data| data.dot_replace(path, new))
+    }
+
+    fn set<T: Serialize>(&self, path: &str, value: T) {
+        self.tap(|data| data.dot_set(path, value));
+    }
+
+    fn remove(&self, path: &str) -> bool {
+        self.tap(|data| data.dot_remove(path))
+    }
+}
+```
 

@@ -1,20 +1,20 @@
 use parking_lot::RwLock;
 use rand::Rng;
-use rocket::fairing::{self, Fairing, Info};
-use rocket::request::FromRequest;
 
 use rocket::{
+    fairing::{self, Fairing, Info},
     http::{Cookie, Status},
+    request::FromRequest,
     Outcome, Request, Response, Rocket, State,
 };
 
-use serde::export::PhantomData;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::ops::Add;
 use std::time::{Duration, Instant};
 
 const SESSION_COOKIE: &str = "SESSID";
-const SESSION_ID_LEN : usize = 16;
+const SESSION_ID_LEN: usize = 16;
 
 /// Session, as stored in the sessions store
 #[derive(Debug)]
@@ -30,7 +30,7 @@ where
 
 /// Session store (shared state)
 #[derive(Default, Debug)]
-struct SessionStore<D>
+pub struct SessionStore<D>
 where
     D: 'static + Sync + Send + Default,
 {
@@ -38,6 +38,17 @@ where
     inner: RwLock<HashMap<String, SessionInstance<D>>>,
     /// Sessions lifespan
     lifespan: Duration,
+}
+
+impl<D> SessionStore<D>
+where
+    D: 'static + Sync + Send + Default,
+{
+    /// Remove all expired sessions
+    pub fn remove_expired(&self) {
+        let now = Instant::now();
+        self.inner.write().retain(|_k, v| v.expires > now);
+    }
 }
 
 /// Session ID newtype for rocket's "local_cache"
@@ -112,16 +123,40 @@ where
         }
     }
 
+    /// Access the session store
+    pub fn get_store(&self) -> &SessionStore<D> {
+        &self.store
+    }
+
+    /// Set the session object to its default state
+    pub fn reset(&self) {
+        self.tap(|m| {
+            *m = D::default();
+        })
+    }
+
+    /// Renew the session without changing any data
+    pub fn renew(&self) {
+        self.tap(|_| ())
+    }
+
     /// Run a closure with a mutable reference to the session object.
     /// The closure's return value is send to the caller.
     pub fn tap<T>(&self, func: impl FnOnce(&mut D) -> T) -> T {
         let mut wg = self.store.inner.write();
         if let Some(instance) = wg.get_mut(&self.id.0) {
+            // wipe session data if expired
+            if instance.expires <= Instant::now() {
+                instance.data = D::default();
+            }
+            // update expiry timestamp
             instance.expires = Instant::now().add(self.store.lifespan);
+
             func(&mut instance.data)
         } else {
+            // no object in the store yet, start fresh
             let mut data = D::default();
-            let rv = func(&mut data);
+            let result = func(&mut data);
             wg.insert(
                 self.id.0.clone(),
                 SessionInstance {
@@ -129,13 +164,8 @@ where
                     expires: Instant::now().add(self.store.lifespan),
                 },
             );
-            rv
+            result
         }
-    }
-
-    /// Renew the session
-    pub fn renew(&self) {
-        self.tap(|_| ())
     }
 }
 
