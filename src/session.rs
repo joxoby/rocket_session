@@ -40,12 +40,9 @@ impl<'a, 'r> FromRequest<'a, 'r> for &'a SessionID {
 
     fn from_request(request: &'a Request<'r>) -> Outcome<Self, (Status, Self::Error), ()> {
         Outcome::Success(request.local_cache(|| {
-            println!("get id");
             if let Some(cookie) = request.cookies().get(SESSION_ID) {
-                println!("from cookie");
                 SessionID(cookie.value().to_string()) // FIXME avoid cloning (cow?)
             } else {
-                println!("new id");
                 SessionID(
                     rand::thread_rng()
                         .sample_iter(&rand::distributions::Alphanumeric)
@@ -158,7 +155,7 @@ struct SessionFairing {
 impl Fairing for SessionFairing {
     fn info(&self) -> Info {
         Info {
-            name: "Session Fairing",
+            name: "Session",
             kind: fairing::Kind::Attach | fairing::Kind::Response,
         }
     }
