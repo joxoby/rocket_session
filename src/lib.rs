@@ -1,5 +1,5 @@
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
-use rand::Rng;
+use rand::{Rng, rngs::OsRng};
 
 use rocket::{
     fairing::{self, Fairing, Info},
@@ -176,7 +176,7 @@ where
 
                     // Find a new unique ID - we are still safely inside the write guard
                     let new_id = SessionID(loop {
-                        let token: String = rand::thread_rng()
+                        let token: String = OsRng
                             .sample_iter(&rand::distributions::Alphanumeric)
                             .take(store.config.cookie_len)
                             .collect();
