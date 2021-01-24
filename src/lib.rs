@@ -179,6 +179,7 @@ where
                         let token: String = OsRng
                             .sample_iter(&rand::distributions::Alphanumeric)
                             .take(store.config.cookie_len)
+                            .map(char::from)
                             .collect();
 
                         if !store_wg.sessions.contains_key(&token) {

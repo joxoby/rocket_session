@@ -1,6 +1,6 @@
-# [unreleased]
+# [0.2.2]
 
-- ...
+- Update dependencies
 
 # [0.2.1]
 
