@@ -1,5 +1,5 @@
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
-use rand::{Rng, rngs::OsRng};
+use rand::{rngs::OsRng, Rng};
 
 use rocket::{
     fairing::{self, Fairing, Info},
@@ -38,6 +38,8 @@ struct SessionConfig {
     cookie_path: Cow<'static, str>,
     /// Session ID character length
     cookie_len: usize,
+    /// Session ID domain
+    cookie_domain: Cow<'static, str>,
 }
 
 impl Default for SessionConfig {
@@ -46,6 +48,7 @@ impl Default for SessionConfig {
             lifespan: Duration::from_secs(3600),
             cookie_name: "rocket_session".into(),
             cookie_path: "/".into(),
+            cookie_domain: "".into(),
             cookie_len: 16,
         }
     }
@@ -293,6 +296,14 @@ where
         self.config.cookie_path = path.into();
         self
     }
+
+    /// Set session cookie domain
+    ///
+    /// Call on the fairing before passing it to `rocket.attach()`
+    pub fn with_cookie_domain(mut self, domain: impl Into<Cow<'static, str>>) -> Self {
+        self.config.cookie_domain = domain.into();
+        self
+    }
 }
 
 impl<D> Fairing for SessionFairing<D>
@@ -322,6 +333,7 @@ where
             response.adjoin_header(
                 Cookie::build(self.config.cookie_name.clone(), session.to_string())
                     .path("/")
+                    .domain(self.config.cookie_domain.clone())
                     .finish(),
             );
         }
