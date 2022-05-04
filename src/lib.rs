@@ -334,6 +334,8 @@ where
                 Cookie::build(self.config.cookie_name.clone(), session.to_string())
                     .path("/")
                     .domain(self.config.cookie_domain.clone())
+                    .same_site(rocket::http::SameSite::None)
+                    .secure(true)
                     .finish(),
             );
         }
