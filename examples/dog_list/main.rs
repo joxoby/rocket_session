@@ -7,11 +7,11 @@ use rocket::response::Redirect;
 
 type Session<'a> = rocket_session::Session<'a, Vec<String>>;
 
-fn main() {
-    rocket::ignite()
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
         .attach(Session::fairing())
         .mount("/", routes![index, add, remove])
-        .launch();
 }
 
 #[get("/")]

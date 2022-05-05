@@ -4,8 +4,9 @@ use rand::{rngs::OsRng, Rng};
 use rocket::{
     fairing::{self, Fairing, Info},
     http::{Cookie, Status},
+    outcome::Outcome,
     request::FromRequest,
-    Outcome, Request, Response, Rocket, State,
+    Request, Response, State,
 };
 
 use std::borrow::Cow;
@@ -117,19 +118,21 @@ where
     D: 'static + Sync + Send + Default,
 {
     /// The shared state reference
-    store: State<'a, SessionStore<D>>,
+    store: State<SessionStore<D>>,
     /// Session ID
     id: &'a SessionID,
 }
 
-impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
+#[rocket::async_trait]
+impl<'r, D> FromRequest<'r> for Session<'r, D>
 where
     D: 'static + Sync + Send + Default,
 {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> Outcome<Self, (Status, Self::Error), ()> {
-        let store: State<SessionStore<D>> = request.guard().unwrap();
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, (Status, Self::Error), ()> {
+        let session = request.guard::<Session<D>>().await.unwrap();
+        let store = session.store;
         Outcome::Success(Session {
             id: request.local_cache(|| {
                 let store_ug = store.inner.upgradable_read();
@@ -306,6 +309,10 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+struct SessionError;
+
+#[rocket::async_trait]
 impl<D> Fairing for SessionFairing<D>
 where
     D: 'static + Sync + Send + Default,
@@ -313,31 +320,29 @@ where
     fn info(&self) -> Info {
         Info {
             name: "Session",
-            kind: fairing::Kind::Attach | fairing::Kind::Response,
+            kind: fairing::Kind::Ignite | fairing::Kind::Response,
         }
     }
 
-    fn on_attach(&self, rocket: Rocket) -> Result<Rocket, Rocket> {
-        // install the store singleton
-        Ok(rocket.manage(SessionStore::<D> {
-            inner: Default::default(),
-            config: self.config.clone(),
-        }))
-    }
-
-    fn on_response<'r>(&self, request: &'r Request, response: &mut Response) {
+    // fn on_ignite(&self, rocket: Rocket<P>) -> Result<Rocket<P>, SessionError> {
+    //     // install the store singleton
+    //     Ok(rocket.state(SessionStore::<D> {
+    //         inner: Default::default(),
+    //         config: self.config.clone(),
+    //     }))
+    // }
+    async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response) {
         // send the session cookie, if session started
         let session = request.local_cache(|| SessionID("".to_string()));
 
         if !session.0.is_empty() {
-            response.adjoin_header(
-                Cookie::build(self.config.cookie_name.clone(), session.to_string())
-                    .path("/")
-                    .domain(self.config.cookie_domain.clone())
-                    .same_site(rocket::http::SameSite::None)
-                    .secure(true)
-                    .finish(),
-            );
+            let c = Cookie::build(self.config.cookie_name.clone(), session.to_string())
+                .path("/")
+                .domain(self.config.cookie_domain.clone())
+                .same_site(rocket::http::SameSite::None)
+                .secure(true)
+                .finish();
+            response.adjoin_header(c);
         }
     }
 }

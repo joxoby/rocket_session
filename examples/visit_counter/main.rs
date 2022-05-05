@@ -18,8 +18,9 @@ struct SessionData {
 // It's convenient to define a type alias:
 type Session<'a> = rocket_session::Session<'a, SessionData>;
 
-fn main() {
-    rocket::ignite()
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
         .attach(
             Session::fairing()
                 // 10 seconds of inactivity until session expires
@@ -30,7 +31,6 @@ fn main() {
                 .with_cookie_len(20),
         )
         .mount("/", routes![index, about])
-        .launch();
 }
 
 #[get("/")]
