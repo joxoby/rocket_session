@@ -17,5 +17,6 @@ categories = [
 
 [dependencies]
 rand = "0.8"
-rocket = "0.4"
+rocket = "0.4.9"
 parking_lot = "0.11"
+cookie = {version = "0.16.0", features = ["secure", "percent-encode"]}

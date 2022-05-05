@@ -3,11 +3,12 @@ use rand::{rngs::OsRng, Rng};
 
 use rocket::{
     fairing::{self, Fairing, Info},
-    http::{Cookie, Status},
+    http::{Header, Status},
     request::FromRequest,
     Outcome, Request, Response, Rocket, State,
 };
 
+use cookie::{self, Cookie};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
@@ -330,14 +331,15 @@ where
         let session = request.local_cache(|| SessionID("".to_string()));
 
         if !session.0.is_empty() {
-            response.adjoin_header(
-                Cookie::build(self.config.cookie_name.clone(), session.to_string())
-                    .path("/")
-                    .domain(self.config.cookie_domain.clone())
-                    .same_site(rocket::http::SameSite::None)
-                    .secure(true)
-                    .finish(),
-            );
+            let c = Cookie::build(self.config.cookie_name.clone(), session.to_string())
+                .path("/")
+                .domain(self.config.cookie_domain.clone())
+                .same_site(cookie::SameSite::None)
+                .secure(true)
+                .finish();
+
+            let header = Header::new("Set-Cookie", c.encoded().to_string());
+            response.adjoin_header(header);
         }
     }
 }
