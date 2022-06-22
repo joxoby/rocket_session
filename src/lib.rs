@@ -4,8 +4,9 @@ use rand::{rngs::OsRng, Rng};
 use rocket::{
     fairing::{self, Fairing, Info},
     http::{Header, Status},
+    outcome::Outcome,
     request::FromRequest,
-    Outcome, Request, Response, Rocket, State,
+    Build, Request, Response, Rocket, State,
 };
 
 use cookie::{self, Cookie};
@@ -118,19 +119,21 @@ where
     D: 'static + Sync + Send + Default,
 {
     /// The shared state reference
-    store: State<'a, SessionStore<D>>,
+    store: &'a State<SessionStore<D>>,
     /// Session ID
     id: &'a SessionID,
 }
 
-impl<'a, 'r, D> FromRequest<'a, 'r> for Session<'a, D>
+#[rocket::async_trait]
+impl<'r, D> FromRequest<'r> for Session<'r, D>
 where
     D: 'static + Sync + Send + Default,
 {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> Outcome<Self, (Status, Self::Error), ()> {
-        let store: State<SessionStore<D>> = request.guard().unwrap();
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, (Status, Self::Error), ()> {
+        let store: &State<SessionStore<D>> =
+            request.guard::<&State<SessionStore<D>>>().await.unwrap();
         Outcome::Success(Session {
             id: request.local_cache(|| {
                 let store_ug = store.inner.upgradable_read();
@@ -307,6 +310,7 @@ where
     }
 }
 
+#[rocket::async_trait]
 impl<D> Fairing for SessionFairing<D>
 where
     D: 'static + Sync + Send + Default,
@@ -314,11 +318,11 @@ where
     fn info(&self) -> Info {
         Info {
             name: "Session",
-            kind: fairing::Kind::Attach | fairing::Kind::Response,
+            kind: fairing::Kind::Ignite | fairing::Kind::Response,
         }
     }
 
-    fn on_attach(&self, rocket: Rocket) -> Result<Rocket, Rocket> {
+    async fn on_ignite(&self, rocket: Rocket<Build>) -> Result<Rocket<Build>, Rocket<Build>> {
         // install the store singleton
         Ok(rocket.manage(SessionStore::<D> {
             inner: Default::default(),
@@ -326,7 +330,7 @@ where
         }))
     }
 
-    fn on_response<'r>(&self, request: &'r Request, response: &mut Response) {
+    async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response) {
         // send the session cookie, if session started
         let session = request.local_cache(|| SessionID("".to_string()));
 

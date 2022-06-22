@@ -2,11 +2,10 @@
 //!
 //! The expiry time is set to 10 seconds to illustrate how a session is cleared if inactive.
 
-#![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use]
 extern crate rocket;
 
-use rocket::response::content::Html;
+use rocket::response::content::RawHtml;
 use std::time::Duration;
 
 #[derive(Default, Clone)]
@@ -18,8 +17,9 @@ struct SessionData {
 // It's convenient to define a type alias:
 type Session<'a> = rocket_session::Session<'a, SessionData>;
 
-fn main() {
-    rocket::ignite()
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
         .attach(
             Session::fairing()
                 // 10 seconds of inactivity until session expires
@@ -30,11 +30,10 @@ fn main() {
                 .with_cookie_len(20),
         )
         .mount("/", routes![index, about])
-        .launch();
 }
 
 #[get("/")]
-fn index(session: Session) -> Html<String> {
+fn index(session: Session) -> RawHtml<String> {
     // Here we build the entire response inside the 'tap' closure.
 
     // While inside, the session is locked to parallel changes, e.g.
@@ -42,7 +41,7 @@ fn index(session: Session) -> Html<String> {
     session.tap(|sess| {
         sess.visits1 += 1;
 
-        Html(format!(
+        RawHtml(format!(
             r##"
                 <!DOCTYPE html>
                 <h1>Home</h1>
@@ -55,14 +54,14 @@ fn index(session: Session) -> Html<String> {
 }
 
 #[get("/about")]
-fn about(session: Session) -> Html<String> {
+fn about(session: Session) -> RawHtml<String> {
     // Here we return a value from the tap function and use it below
     let count = session.tap(|sess| {
         sess.visits2 += 1;
         sess.visits2
     });
 
-    Html(format!(
+    RawHtml(format!(
         r##"
             <!DOCTYPE html>
             <h1>About</h1>

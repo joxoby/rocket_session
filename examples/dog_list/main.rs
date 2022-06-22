@@ -1,21 +1,20 @@
-#![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use]
 extern crate rocket;
 
-use rocket::response::content::Html;
+use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 
 type Session<'a> = rocket_session::Session<'a, Vec<String>>;
 
-fn main() {
-    rocket::ignite()
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
         .attach(Session::fairing())
         .mount("/", routes![index, add, remove])
-        .launch();
 }
 
 #[get("/")]
-fn index(session: Session) -> Html<String> {
+fn index(session: Session) -> RawHtml<String> {
     let mut page = String::new();
     page.push_str(
         r#"
@@ -38,7 +37,7 @@ fn index(session: Session) -> Html<String> {
         }
     });
     page.push_str("</ul>");
-    Html(page)
+    RawHtml(page)
 }
 
 #[post("/add", data = "<dog>")]
